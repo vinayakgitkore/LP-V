@@ -1,0 +1,68 @@
+CUDA Matrix Multiplication
+%%cuda
+#include <cuda_runtime.h>
+#include <iostream>
+
+__global__ void matmul(int* A, int* B, int* C, int N) {
+    int Row = blockIdx.y * blockDim.y + threadIdx.y;
+    int Col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (Row < N && Col < N) {
+        int Pvalue = 0;
+        for (int k = 0; k < N; k++) {
+            Pvalue += A[Row * N + k] * B[k * N + Col];
+        }
+        C[Row * N + Col] = Pvalue;
+    }
+}
+
+int main() {
+    int N = 2;
+    int size = N * N * sizeof(int);
+    int* A, * B, * C;
+    int* dev_A, * dev_B, * dev_C;
+
+    cudaMallocHost(&A, size);
+    cudaMallocHost(&B, size);
+    cudaMallocHost(&C, size);
+
+    cudaMalloc(&dev_A, size);
+    cudaMalloc(&dev_B, size);
+    cudaMalloc(&dev_C, size);
+
+    // Initialize matrices A and B with the desired values
+    A[0] = 1; A[1] = 2;
+    A[2] = 3; A[3] = 4;
+
+    B[0] = 1; B[1] = 2;
+    B[2] = 3; B[3] = 4;
+
+    cudaMemcpy(dev_A, A, size, cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_B, B, size, cudaMemcpyHostToDevice);
+
+    dim3 dimBlock(16, 16);
+    dim3 dimGrid((N + dimBlock.x - 1) / dimBlock.x, (N + dimBlock.y - 1) / dimBlock.y);
+
+    matmul<<<dimGrid, dimBlock>>>(dev_A, dev_B, dev_C, N);
+
+    cudaMemcpy(C, dev_C, size, cudaMemcpyDeviceToHost);
+
+    // Print the result
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            std::cout << C[i * N + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+
+    // Free memory
+    cudaFree(dev_A);
+    cudaFree(dev_B);
+    cudaFree(dev_C);
+    cudaFreeHost(A);
+    cudaFreeHost(B);
+    cudaFreeHost(C);
+
+    return 0;
+}
+
